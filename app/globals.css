@@ -1,0 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f6f6fb;
+  --surface: #ffffff;
+  --surface-2: #eeeef6;
+  --line: #e1e1ee;
+  --fg: #15151e;
+  --muted: #6b6b8a;
+  --purple: #6d5df0;
+  --green: #0b8f63;
+  --yellow: #a97304;
+  --red: #d24141;
+  --pink: #cf3f74;
+  --blue: #077ea9;
+  --violet: #7a6df0;
+  --glow: rgba(109, 93, 240, 0.12);
+}
+
+.dark {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface-2: #1a1a26;
+  --line: #2a2a3d;
+  --fg: #e8e8f0;
+  --muted: #8b8ba8;
+  --purple: #7c6af7;
+  --green: #3de8a0;
+  --yellow: #f7c96a;
+  --red: #f76a6a;
+  --pink: #f76a8a;
+  --blue: #5bd4ff;
+  --violet: #9b8cff;
+  --glow: rgba(124, 106, 247, 0.16);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--purple);
+  --color-good: var(--green);
+  --color-warn: var(--yellow);
+  --color-bad: var(--red);
+  --color-pink: var(--pink);
+  --color-blue: var(--blue);
+  --color-violet: var(--violet);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--purple);
+    color: #ffffff;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+}
+
+@layer utilities {
+  .panel {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 0.9rem;
+  }
+
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

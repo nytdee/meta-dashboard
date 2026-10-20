@@ -98,8 +98,6 @@ def get_meta_data(start_date=None, end_date=None, level="campaign"):
             lambda x: extract_action(x, "onsite_conversion.lead_grouped")
         )
         # ── Three landing types — exact action types per source ──
-        # Instant Form (Meta native lead form)
-        _form = df["actions"].apply(lambda x: extract_action(x, "onsite_conversion.lead_grouped"))
         # Website pixel (landing page conversion)
         _web  = df["actions"].apply(lambda x: extract_action(x, "onsite_web_lead"))
         # WhatsApp click (first message)
@@ -110,11 +108,12 @@ def get_meta_data(start_date=None, end_date=None, level="campaign"):
         df["messaging_connections"] = df["actions"].apply(
             lambda x: extract_action(x, "onsite_conversion.total_messaging_connection")
         )
-        # Assign to mutually exclusive buckets: leads = form_leads + website_leads
+        # leads (onsite_conversion.lead_grouped) already includes website leads,
+        # so form leads are the remainder. leads = form_leads + website_leads.
         df["website_leads"]   = _web
         df["whatsapp_leads"]  = _wap
         df["messenger_leads"] = _msg
-        df["form_leads"]      = _form
+        df["form_leads"]      = (df["leads"] - df["website_leads"]).clip(lower=0).astype(int)
         # Supporting
         df["link_clicks"]       = df["actions"].apply(lambda x: extract_action(x, "link_click"))
         df["landing_page_views"]= df["actions"].apply(lambda x: extract_action(x, "landing_page_view"))
