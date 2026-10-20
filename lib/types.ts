@@ -32,6 +32,8 @@ export type DashboardData = {
     campaignRows: number;
     adRows: number;
     sourceFiles: number;
+    source: "live" | "sample";
+    liveMaxDate: string | null;
     totals: DashboardTotals;
   };
   campaign: DailyRow[];

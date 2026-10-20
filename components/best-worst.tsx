@@ -112,62 +112,6 @@ export default function BestWorst({ adRows }: { adRows: DailyRow[] }) {
           />
         ) : null}
       </div>
-
-      <details className="panel group overflow-hidden">
-        <summary className="cursor-pointer list-none px-4 py-3 text-xs font-semibold text-muted transition hover:text-fg">
-          All ads ranked
-          <span className="ml-2 text-[10px] font-normal">
-            ({ranked.length} ads)
-          </span>
-        </summary>
-        <div className="max-h-[420px] overflow-auto border-t border-line">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead className="sticky top-0 z-10 bg-surface-2">
-              <tr>
-                {["Ad", "Campaign", "Leads", "Spend", "CTR", "CPL"].map((label, index) => (
-                  <th
-                    key={label}
-                    className={`border-b border-line px-3 py-2 ${index > 1 ? "text-right" : "text-left"}`}
-                  >
-                    <span className="label-mono">{label}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ranked.map((row, index) => (
-                <tr
-                  key={row.key}
-                  className={index % 2 === 1 ? "bg-surface-2/40" : undefined}
-                >
-                  <td className="max-w-[240px] border-b border-line px-3 py-2">
-                    <span className="block truncate font-medium" title={row.ad}>
-                      {row.ad}
-                    </span>
-                  </td>
-                  <td className="max-w-[220px] border-b border-line px-3 py-2">
-                    <span className="block truncate text-xs text-muted" title={row.campaign}>
-                      {row.campaign}
-                    </span>
-                  </td>
-                  <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs font-bold">
-                    {row.leads.toLocaleString("en-US")}
-                  </td>
-                  <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs">
-                    {money(row.spend)}
-                  </td>
-                  <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs">
-                    {percent(row.ctr)}
-                  </td>
-                  <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs">
-                    {money(row.cpl)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
     </div>
   );
 }

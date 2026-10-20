@@ -1,26 +1,19 @@
 import {
   CheckCircle2,
-  ClipboardList,
   Eye,
   Repeat2,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { deltaPercent, fmt, money, percent } from "@/lib/format";
-import type { DailyRow, Metrics } from "@/lib/types";
+import { deltaPercent } from "@/lib/format";
+import type { Metrics } from "@/lib/types";
 
 export default function Insights({
   current,
   previous,
-  rows,
-  conversionRate,
-  dropOff,
 }: {
   current: Metrics;
   previous: Metrics | null;
-  rows: DailyRow[];
-  conversionRate: number;
-  dropOff: number;
 }) {
   const items: Array<{
     icon: typeof Eye;
@@ -62,14 +55,6 @@ export default function Insights({
     });
   }
 
-  if (conversionRate > 0 && conversionRate < 50) {
-    items.push({
-      icon: ClipboardList,
-      color: "var(--yellow)",
-      text: `Lead conversion rate ${conversionRate.toFixed(0)}% — ${fmt(dropOff)} people started but didn't complete. Simplify form fields.`,
-    });
-  }
-
   if (items.length === 0) {
     items.push({
       icon: CheckCircle2,
@@ -96,15 +81,6 @@ export default function Insights({
           </div>
         );
       })}
-      {rows.length === 0 ? (
-        <p className="px-1 text-[10px] text-muted">
-          Insight thresholds use the selected period and comparison only.
-        </p>
-      ) : null}
-      <p className="px-1 text-[10px] text-muted">
-        Current CPL {money(current.cpl)} · CTR {percent(current.ctr)} · Leads{" "}
-        {fmt(current.leads)}
-      </p>
     </div>
   );
 }

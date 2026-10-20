@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Zap } from "lucide-react";
+import { CalendarDays, FlaskConical, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { aggregate, dailySeries, filterRows } from "@/lib/aggregate";
 import {
@@ -27,11 +27,10 @@ import FiltersPanel from "./filters-panel";
 import Funnel from "./funnel";
 import Insights from "./insights";
 import LeadSources from "./lead-sources";
-import LeadsVsResults from "./leads-vs-results";
 import PulseTable from "./pulse-table";
 import ThemeToggle from "./theme-toggle";
 import Trends from "./trends";
-import { HealthPill, Section } from "./ui";
+import { HealthPill, Section, cn } from "./ui";
 
 function normalizeRange(from: string, to: string) {
   return from <= to ? { from, to } : { from: to, to: from };
@@ -78,6 +77,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
   const [cmpTo, setCmpTo] = useState(addDays(summary.maxDate, -14));
   const [selected, setSelected] = useState<string[]>(allCampaigns);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const presetRange = rangeForPreset(preset, summary.maxDate);
   const activeRange = useMemo(
@@ -128,12 +128,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
   const comparisonLabel = comparison
     ? formatRange(comparison.from, comparison.to)
     : null;
-
-  const totalResults = Math.round(
-    current.leads + Math.max(current.messagingConnections - current.leads, 0),
-  );
-  const dropOff = Math.max(totalResults - current.leads, 0);
-  const conversionRate = totalResults > 0 ? (current.leads / totalResults) * 100 : 0;
 
   const issues: string[] = [];
   const goods: string[] = [];
@@ -193,6 +187,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
     onShowDiagnosticsChange: setShowDiagnostics,
     dataDays: summary.days,
     sourceFiles: summary.sourceFiles,
+    source: summary.source,
+    liveMaxDate: summary.liveMaxDate,
     generatedAt,
   };
 
@@ -201,20 +197,25 @@ export default function Dashboard({ data }: { data: DashboardData }) {
       <div className="mx-auto max-w-[1500px] px-4 py-5 lg:px-8">
         <div className="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
           <aside className="lg:sticky lg:top-5 lg:self-start">
-            <div className="hidden lg:block">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              aria-expanded={filtersOpen}
+              className="panel flex w-full items-center justify-between px-4 py-3 text-left lg:hidden"
+            >
+              <span className="label-mono text-fg">Filters & data</span>
+              <span className="text-[10px] text-muted">
+                {filtersOpen ? "Hide" : `${summary.days} days`}
+              </span>
+            </button>
+            <div
+              className={cn(
+                "mt-2 lg:mt-0",
+                filtersOpen ? "block" : "hidden lg:block",
+              )}
+            >
               <FiltersPanel {...filtersProps} />
             </div>
-            <details className="lg:hidden">
-              <summary className="panel flex cursor-pointer list-none items-center justify-between px-4 py-3">
-                <span className="label-mono text-fg">Filters & data</span>
-                <span className="text-[10px] text-muted">
-                  {summary.days} days
-                </span>
-              </summary>
-              <div className="mt-2">
-                <FiltersPanel {...filtersProps} />
-              </div>
-            </details>
           </aside>
 
           <main className="mt-5 min-w-0 lg:mt-0">
@@ -249,6 +250,23 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
             <div className="mt-4 h-0.5 rounded bg-gradient-to-r from-accent via-good to-warn" />
 
+            {summary.source === "sample" ? (
+              <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-warn/30 bg-warn/10 p-3 text-xs text-warn">
+                <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="leading-relaxed">
+                  <span className="font-semibold">Sample data</span> — the live
+                  export
+                  {summary.liveMaxDate
+                    ? ` ends ${formatShort(summary.liveMaxDate)}`
+                    : " is unavailable"}
+                  . Showing {summary.days} days of generated demo data through{" "}
+                  {formatShort(summary.maxDate)}. Refresh the CSV export and run{" "}
+                  <code className="font-mono">npm run data</code> to restore live
+                  figures.
+                </p>
+              </div>
+            ) : null}
+
             {selected.length === 0 ? (
               <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-3 text-xs text-warn">
                 No campaigns selected. Pick at least one campaign in Filters.
@@ -257,10 +275,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
             <Section title="Performance funnel" subtitle={rangeLabel}>
               <Funnel current={current} previous={previous} />
-            </Section>
-
-            <Section title="Leads vs results">
-              <LeadsVsResults current={current} />
             </Section>
 
             <Section title="Lead landing type" subtitle="exact source per lead">
@@ -288,13 +302,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             </Section>
 
             <Section title="Insights">
-              <Insights
-                current={current}
-                previous={previous}
-                rows={currentRows}
-                conversionRate={conversionRate}
-                dropOff={dropOff}
-              />
+              <Insights current={current} previous={previous} />
             </Section>
 
             {showDiagnostics ? (
@@ -310,10 +318,18 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
             <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-[10px] text-muted">
               <span>
-                Data through {formatShort(summary.maxDate)} · generated{" "}
+                {summary.source === "sample" ? "Sample data" : "Data"} through{" "}
+                {formatShort(summary.maxDate)} · generated{" "}
                 {formatDateTime(generatedAt)}
               </span>
-              <span>{summary.sourceFiles} source files · Next.js</span>
+              <span>
+                {summary.source === "sample"
+                  ? summary.liveMaxDate
+                    ? `Live CSV ends ${formatShort(summary.liveMaxDate)}`
+                    : "No live CSV files"
+                  : `${summary.sourceFiles} source files`}{" "}
+                · Next.js
+              </span>
             </footer>
           </main>
         </div>

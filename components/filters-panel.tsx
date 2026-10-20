@@ -36,6 +36,8 @@ type FiltersPanelProps = {
   onShowDiagnosticsChange: (value: boolean) => void;
   dataDays: number;
   sourceFiles: number;
+  source: "live" | "sample";
+  liveMaxDate: string | null;
   generatedAt: string;
 };
 
@@ -114,6 +116,8 @@ export default function FiltersPanel({
   onShowDiagnosticsChange,
   dataDays,
   sourceFiles,
+  source,
+  liveMaxDate,
   generatedAt,
 }: FiltersPanelProps) {
   return (
@@ -253,11 +257,27 @@ export default function FiltersPanel({
       </div>
 
       <div className="mt-4 space-y-1 border-t border-line pt-3 text-[10px] leading-relaxed text-muted">
-        <p className="flex items-center gap-1.5">
-          <Database className="h-3 w-3" />
-          {dataDays} days on disk · {sourceFiles} files
-        </p>
-        <p>Data through {formatShort(maxDate)}</p>
+        {source === "sample" ? (
+          <>
+            <p className="flex items-center gap-1.5 text-warn">
+              <Database className="h-3 w-3" />
+              Sample dataset · {dataDays} days
+            </p>
+            <p>
+              {liveMaxDate
+                ? `Live CSV ends ${formatShort(liveMaxDate)}`
+                : "No live CSV files"}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="flex items-center gap-1.5">
+              <Database className="h-3 w-3" />
+              {dataDays} days on disk · {sourceFiles} files
+            </p>
+            <p>Data through {formatShort(maxDate)}</p>
+          </>
+        )}
         <p>Generated {formatDateTime(generatedAt)}</p>
       </div>
     </div>

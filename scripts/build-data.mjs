@@ -1,10 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
+import { generateSampleRows } from "./sample-data.mjs";
 
 const ROOT = process.cwd();
 const DATA_DIR = path.join(ROOT, "data");
 const OUT_DIR = path.join(ROOT, "public", "data");
 const OUT_FILE = path.join(OUT_DIR, "dashboard.json");
+
+const SAMPLE_DAYS = 90;
+const STALE_DAYS = 7;
+const REQUESTED_SOURCE = (process.env.DATA_SOURCE || "auto").toLowerCase();
+
+if (!["auto", "live", "sample"].includes(REQUESTED_SOURCE)) {
+  throw new Error(`DATA_SOURCE must be auto, live or sample (got "${REQUESTED_SOURCE}")`);
+}
 
 const DAY_PATTERN = /^meta_ads_(\d{4}-\d{2}-\d{2})\.csv$/;
 const AD_PATTERN = /^meta_ads_ad_level_(\d{4}-\d{2}-\d{2})\.csv$/;
@@ -121,36 +130,66 @@ function sum(rows, key) {
   return rows.reduce((total, row) => total + row[key], 0);
 }
 
-if (!fs.existsSync(DATA_DIR)) {
-  throw new Error(`Missing data directory: ${DATA_DIR}`);
+function daysBetween(from, to) {
+  return Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000,
+  );
 }
 
-const files = fs.readdirSync(DATA_DIR).filter((name) => name.endsWith(".csv"));
+function sortCampaignRows(rows) {
+  return [...rows].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.campaign.localeCompare(b.campaign),
+  );
+}
+
+function sortAdRows(rows) {
+  return [...rows].sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      a.campaign.localeCompare(b.campaign) ||
+      a.adset.localeCompare(b.adset) ||
+      a.ad.localeCompare(b.ad),
+  );
+}
+
+const files = fs.existsSync(DATA_DIR)
+  ? fs.readdirSync(DATA_DIR).filter((name) => name.endsWith(".csv"))
+  : [];
 const campaignFiles = files.filter((name) => DAY_PATTERN.test(name)).sort();
 const adFiles = files.filter((name) => AD_PATTERN.test(name)).sort();
 
-if (campaignFiles.length === 0) {
-  throw new Error("No campaign CSVs found in data/. Run daily_fetch.py --backfill first.");
-}
-
-const campaign = dedupe(
+const liveCampaign = dedupe(
   readRows(campaignFiles.map((name) => path.join(DATA_DIR, name)), "campaign", DAY_PATTERN),
   "campaign",
-).sort((a, b) => a.date.localeCompare(b.date) || a.campaign.localeCompare(b.campaign));
-
-const ads = dedupe(
+);
+const liveAds = dedupe(
   readRows(adFiles.map((name) => path.join(DATA_DIR, name)), "ad", AD_PATTERN),
   "ad",
-).sort(
-  (a, b) =>
-    a.date.localeCompare(b.date) ||
-    a.campaign.localeCompare(b.campaign) ||
-    a.adset.localeCompare(b.adset) ||
-    a.ad.localeCompare(b.ad),
 );
 
+const liveDates = [...new Set(liveCampaign.map((row) => row.date))].sort();
+const liveMaxDate = liveDates[liveDates.length - 1] ?? null;
+const today = new Date().toISOString().slice(0, 10);
+const liveIsStale =
+  !liveMaxDate || daysBetween(liveMaxDate, today) > STALE_DAYS;
+
+let source = REQUESTED_SOURCE;
+if (source === "auto") source = liveIsStale ? "sample" : "live";
+
+if (source === "live" && liveCampaign.length === 0) {
+  throw new Error(
+    "DATA_SOURCE=live but no usable campaign CSVs were found in data/. " +
+      "Run daily_fetch.py --backfill or omit DATA_SOURCE to use sample data.",
+  );
+}
+
+const sample =
+  source === "sample" ? generateSampleRows({ endDate: today, days: SAMPLE_DAYS }) : null;
+const campaign = sortCampaignRows(sample ? sample.campaignRows : liveCampaign);
+const ads = sortAdRows(sample ? sample.adRows : liveAds);
+
 if (campaign.length === 0) {
-  throw new Error("Campaign CSVs were found but contained no usable rows.");
+  throw new Error("No usable campaign rows were found.");
 }
 
 const dates = [...new Set(campaign.map((row) => row.date))].sort();
@@ -165,7 +204,9 @@ const payload = {
     days: dates.length,
     campaignRows: campaign.length,
     adRows: ads.length,
-    sourceFiles: campaignFiles.length + adFiles.length,
+    sourceFiles: source === "sample" ? 0 : campaignFiles.length + adFiles.length,
+    source,
+    liveMaxDate,
     totals: {
       spend: Math.round(sum(campaign, "spend") * 100) / 100,
       impressions: sum(campaign, "impressions"),
@@ -194,7 +235,14 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(OUT_FILE, JSON.stringify(payload));
 
 const kb = Math.round(Buffer.byteLength(fs.readFileSync(OUT_FILE)) / 1024);
+const liveNote =
+  source === "sample"
+    ? liveMaxDate
+      ? ` | sample data (live CSV ends ${liveMaxDate})`
+      : " | sample data (no live CSVs)"
+    : "";
 console.log(
-  `[data] ${campaign.length} campaign rows + ${ads.length} ad rows | ` +
-    `${dates.length} days (${minDate} → ${maxDate}) | ${kb} KB → public/data/dashboard.json`,
+  `[data] ${source.toUpperCase()} ${campaign.length} campaign rows + ${ads.length} ad rows | ` +
+    `${dates.length} days (${minDate} → ${maxDate}) | ${kb} KB → public/data/dashboard.json` +
+    liveNote,
 );
