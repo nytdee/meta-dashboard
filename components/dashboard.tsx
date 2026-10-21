@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { CalendarDays, Layers, Sparkles, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
-import { aggregate, dailySeries, filterRows } from "@/lib/aggregate";
+import { aggregate, breakdown, dailySeries, filterRows } from "@/lib/aggregate";
 import { buildFindings } from "@/lib/findings";
+import { buildCampaignGuardrails } from "@/lib/guardrails";
 import { addDays, daysBetween, formatRange } from "@/lib/format";
 import type { CreativeAnalysisFile } from "@/lib/creative/types";
 import { normalizeRange, rangeForPreset } from "@/lib/range";
@@ -98,6 +99,14 @@ export default function Dashboard({
   );
 
   const current = useMemo(() => aggregate(currentRows), [currentRows]);
+  const campaignRows = useMemo(
+    () => breakdown(currentRows, "campaign"),
+    [currentRows],
+  );
+  const guardrails = useMemo(
+    () => buildCampaignGuardrails(campaignRows),
+    [campaignRows],
+  );
   const previous = useMemo(
     () => (comparison ? aggregate(previousRows) : null),
     [comparison, previousRows],
@@ -268,8 +277,11 @@ export default function Dashboard({
               <Funnel current={current} previous={previous} />
             </Section>
 
-            <Section title="Needs attention" subtitle="rule-based, evidence-linked">
-              <NeedsAttention findings={findings} />
+            <Section
+              title="What needs attention"
+              subtitle="budget guardrails + rule-based evidence"
+            >
+              <NeedsAttention findings={findings} guardrails={guardrails} />
             </Section>
 
             <Section title="Lead landing type" subtitle="exact source per lead">

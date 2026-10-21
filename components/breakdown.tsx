@@ -4,10 +4,57 @@ import { ArrowDown, ArrowUp, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { breakdown } from "@/lib/aggregate";
 import { fmt, money, percent } from "@/lib/format";
+import {
+  campaignBenchmark,
+  CPL_BAD_RATIO,
+  CPL_WARN_RATIO,
+  CTR_BAD_RATIO,
+  CTR_WARN_RATIO,
+} from "@/lib/guardrails";
 import type { BreakdownLevel, DailyRow } from "@/lib/types";
 import { EmptyState, cn } from "./ui";
 
 type SortKey = "leads" | "spend" | "ctr" | "cpl";
+
+type Tone = "good" | "warn" | "bad" | "none";
+
+const CELL_TONE: Record<Tone, string> = {
+  good: "bg-good/10 text-good",
+  warn: "bg-warn/10 text-warn",
+  bad: "bg-bad/10 text-bad",
+  none: "",
+};
+
+const MIN_LEADS_FOR_CPL = 3;
+const MIN_IMPRESSIONS_FOR_CTR = 1_000;
+
+function ratioTone(
+  value: number | null,
+  benchmark: number | null,
+  sample: number,
+  minSample: number,
+  betterWhenLower: boolean,
+): Tone {
+  if (
+    value === null ||
+    benchmark === null ||
+    benchmark <= 0 ||
+    sample < minSample
+  ) {
+    return "none";
+  }
+  const ratio = value / benchmark;
+  if (betterWhenLower) {
+    if (ratio >= CPL_BAD_RATIO) return "bad";
+    if (ratio >= CPL_WARN_RATIO) return "warn";
+    if (ratio <= 0.85) return "good";
+    return "none";
+  }
+  if (ratio <= CTR_BAD_RATIO) return "bad";
+  if (ratio <= CTR_WARN_RATIO) return "warn";
+  if (ratio >= 1.15) return "good";
+  return "none";
+}
 
 const TABS: Array<{ level: BreakdownLevel; label: string }> = [
   { level: "campaign", label: "Campaign" },
@@ -38,6 +85,8 @@ export default function Breakdown({
     () => breakdown(level === "campaign" ? campaignRows : adRows, level),
     [level, campaignRows, adRows],
   );
+
+  const benchmark = useMemo(() => campaignBenchmark(rows), [rows]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -225,12 +274,28 @@ export default function Breakdown({
             </thead>
             <tbody>
               {visible.map((row, index) => {
+                const cplTone = ratioTone(
+                  row.cpl,
+                  benchmark.cpl,
+                  row.leads,
+                  MIN_LEADS_FOR_CPL,
+                  true,
+                );
+                const ctrTone = ratioTone(
+                  row.ctr,
+                  benchmark.ctr,
+                  row.impressions,
+                  MIN_IMPRESSIONS_FOR_CTR,
+                  false,
+                );
                 return (
                   <tr
                     key={row.key}
                     className={cn(
                       "transition hover:bg-accent/5",
                       index % 2 === 1 && "bg-surface-2/40",
+                      cplTone === "warn" && "bg-warn/[0.04]",
+                      cplTone === "bad" && "bg-bad/[0.06] hover:bg-bad/[0.09]",
                     )}
                   >
                     <td className="max-w-[280px] border-b border-line px-3 py-2">
@@ -257,10 +322,32 @@ export default function Breakdown({
                     <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs">
                       {money(row.spend)}
                     </td>
-                    <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs">
+                    <td
+                      className={cn(
+                        "tabular border-b border-line px-3 py-2 text-right font-mono text-xs",
+                        CELL_TONE[ctrTone],
+                        ctrTone !== "none" && "font-semibold",
+                      )}
+                      title={
+                        benchmark.ctr !== null && row.ctr !== null
+                          ? `${percent(row.ctr)} CTR · benchmark ${percent(benchmark.ctr)}`
+                          : undefined
+                      }
+                    >
                       {percent(row.ctr)}
                     </td>
-                    <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs">
+                    <td
+                      className={cn(
+                        "tabular border-b border-line px-3 py-2 text-right font-mono text-xs",
+                        CELL_TONE[cplTone],
+                        cplTone !== "none" && "font-semibold",
+                      )}
+                      title={
+                        benchmark.cpl !== null && row.cpl !== null
+                          ? `${money(row.cpl)} CPL · benchmark ${money(benchmark.cpl)}`
+                          : undefined
+                      }
+                    >
                       {money(row.cpl)}
                     </td>
                   </tr>
@@ -270,6 +357,24 @@ export default function Breakdown({
           </table>
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line px-3 py-2 text-[10px] text-muted">
+        <span className="font-mono">
+          Benchmark: CPL {money(benchmark.cpl)} · CTR {percent(benchmark.ctr)}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-sm bg-good/60" /> efficient
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-sm bg-warn/60" /> watch
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-sm bg-bad/60" /> inefficient
+        </span>
+        <span className="ml-auto hidden sm:inline">
+          Weighted from the current filter. Cells under 3 leads or 1,000
+          impressions stay neutral.
+        </span>
+      </div>
     </div>
   );
 }

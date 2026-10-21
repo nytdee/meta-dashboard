@@ -30,6 +30,8 @@ import type {
   TagCohort,
 } from "@/lib/creative/types";
 import { DeltaBadge, EmptyState, Section, cn } from "./ui";
+import type { DailyRow } from "@/lib/types";
+import WinningFormulas from "./winning-formulas";
 
 const VERDICT_META: Record<
   CreativeVerdict,
@@ -478,9 +480,11 @@ function CreativeCard({
 export default function CreativeLab({
   analysis,
   narratives,
+  campaignRows = [],
 }: {
   analysis: CreativeAnalysisFile;
   narratives: CreativeNarrativeFile | null;
+  campaignRows?: DailyRow[];
 }) {
   const [search, setSearch] = useState("");
   const [format, setFormat] = useState("all");
@@ -632,6 +636,10 @@ export default function CreativeLab({
             {issue}
           </div>
         ))}
+
+        {campaignRows.length > 0 ? (
+          <WinningFormulas rows={campaignRows} defaultDays={30} />
+        ) : null}
 
         <div className="panel mt-4 p-3">
           <div className="flex flex-wrap items-center gap-2">

@@ -1,12 +1,35 @@
 import fs from "node:fs";
 import path from "node:path";
 import CreativeLab from "@/components/creative-lab";
+import dashboard from "@/public/data/dashboard.json";
+import type { DailyRow } from "@/lib/types";
 import type {
   CreativeAnalysisFile,
   CreativeNarrativeFile,
 } from "@/lib/creative/types";
 
 export const dynamic = "force-static";
+
+function campaignRows(): DailyRow[] {
+  const rows = dashboard.campaign as unknown as Array<Record<string, unknown>>;
+  return rows.map((row) => ({
+    date: String(row.date ?? ""),
+    campaign: String(row.campaign ?? ""),
+    adset: "",
+    ad: "",
+    impressions: Number(row.impressions ?? 0),
+    reach: Number(row.reach ?? 0),
+    clicks: Number(row.clicks ?? 0),
+    spend: Number(row.spend ?? 0),
+    leads: Number(row.leads ?? 0),
+    formLeads: 0,
+    websiteLeads: 0,
+    whatsappLeads: 0,
+    messengerLeads: 0,
+    messagingConnections: 0,
+    frequency: 0,
+  }));
+}
 
 function readAnalysis(): CreativeAnalysisFile | null {
   try {
@@ -52,5 +75,11 @@ export default function CreativePage() {
     );
   }
 
-  return <CreativeLab analysis={analysis} narratives={narratives} />;
+  return (
+    <CreativeLab
+      analysis={analysis}
+      narratives={narratives}
+      campaignRows={campaignRows()}
+    />
+  );
 }
