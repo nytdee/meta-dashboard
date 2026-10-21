@@ -7,8 +7,8 @@ import json
 
 load_dotenv()
 
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-AD_ACCOUNT_ID = os.getenv("AD_ACCOUNT_ID")
+ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN") or os.getenv("ACCESS_TOKEN")
+AD_ACCOUNT_ID = os.getenv("META_AD_ACCOUNT_ID") or os.getenv("AD_ACCOUNT_ID")
 
 
 def get_meta_data(start_date=None, end_date=None, level="campaign"):
@@ -17,7 +17,8 @@ def get_meta_data(start_date=None, end_date=None, level="campaign"):
     level: "campaign" | "adset" | "ad"
     Returns a DataFrame or empty DataFrame on failure.
     """
-    url = f"https://graph.facebook.com/v19.0/{AD_ACCOUNT_ID}/insights"
+    url = f"https://graph.facebook.com/v24.0/{AD_ACCOUNT_ID}/insights"
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
 
     # Normalise to date objects
     if isinstance(start_date, str):
@@ -38,7 +39,6 @@ def get_meta_data(start_date=None, end_date=None, level="campaign"):
             "since": start_date.strftime("%Y-%m-%d"),
             "until": end_date.strftime("%Y-%m-%d"),
         }),
-        "access_token": ACCESS_TOKEN,
         "limit": 500,
     }
 
@@ -50,9 +50,9 @@ def get_meta_data(start_date=None, end_date=None, level="campaign"):
     # ✅ Handle pagination
     while next_url:
         if next_url == url:
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, headers=headers)
         else:
-            response = requests.get(next_url)
+            response = requests.get(next_url, headers=headers)
 
         if response.status_code != 200:
             print(f"[fetch_data] HTTP {response.status_code}: {response.text}")

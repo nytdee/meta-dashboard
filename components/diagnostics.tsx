@@ -19,8 +19,8 @@ const CSV_COLUMNS: Array<keyof DailyRow> = [
   "messagingConnections",
 ];
 
-function escapeCell(value: string | number): string {
-  const text = String(value);
+function escapeCell(value: string | number | undefined): string {
+  const text = value === undefined ? "" : String(value);
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -54,15 +54,16 @@ export default function Diagnostics({
   }
 
   const cards = [
+    { label: "Clicks", value: fmt(current.clicks) },
     { label: "Impressions", value: fmt(current.impressions) },
-    { label: "Reach", value: fmt(current.reach) },
+    { label: "Reach (summed)", value: fmt(current.reach) },
     { label: "CPM", value: money(current.cpm, 2) },
     { label: "Avg frequency", value: fmt(current.frequency, { dec: 2 }) },
   ];
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
         {cards.map((card) => (
           <div key={card.label} className="panel p-4">
             <p className="label-mono">{card.label}</p>

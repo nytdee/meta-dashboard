@@ -6,9 +6,19 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "data": "node scripts/build-data.mjs",
-    "dev": "npm run data && next dev",
-    "build": "npm run data && next build",
+    "data": "node scripts/build-data.mjs && node scripts/analyze-creatives.mjs",
+    "data:live": "node scripts/build-data.mjs live && node scripts/analyze-creatives.mjs",
+    "data:sample": "node scripts/build-data.mjs sample && node scripts/analyze-creatives.mjs",
+    "creative:analyze": "node scripts/analyze-creatives.mjs",
+    "creative:ai": "node scripts/ai-narrate.mjs",
+    "audit": "npm run audit:data && npm run audit:meta",
+    "audit:data": "node scripts/audit-data.mjs",
+    "audit:meta": "node scripts/meta-audit.mjs",
+    "dev": "npm run data:sample && next dev",
+    "dev:sample": "npm run data:sample && next dev",
+    "dev:live": "npm run data:live && next dev",
+    "build": "npm run data:sample && next build",
+    "build:live": "npm run data:live && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },

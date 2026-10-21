@@ -57,33 +57,6 @@ export function DeltaBadge({
   );
 }
 
-const pillStyles = {
-  good: "border-good/30 bg-good/10 text-good",
-  warn: "border-warn/30 bg-warn/10 text-warn",
-  bad: "border-bad/30 bg-bad/10 text-bad",
-} as const;
-
-export function HealthPill({
-  level,
-  message,
-}: {
-  level: keyof typeof pillStyles;
-  message: string;
-}) {
-  return (
-    <span
-      title={message}
-      className={cn(
-        "inline-flex max-w-[520px] items-center gap-2 truncate rounded-full border px-3 py-1 text-xs font-medium",
-        pillStyles[level],
-      )}
-    >
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
-      <span className="truncate">{message}</span>
-    </span>
-  );
-}
-
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
     <div className="panel px-4 py-6 text-center text-sm text-muted">

@@ -1,13 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-  Eye,
-  MousePointerClick,
-  Percent,
-  Target,
-  TrendingUp,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { Percent, Target, TrendingUp, Wallet } from "lucide-react";
 import { deltaPercent, fmt, money, percent } from "@/lib/format";
 import type { Metrics } from "@/lib/types";
 import { DeltaBadge } from "./ui";
@@ -43,9 +35,27 @@ export default function Funnel({
 }) {
   const cards: FunnelCard[] = [
     {
+      label: "Spend",
+      value: money(current.spend),
+      sub: previousSub(
+        current.spend,
+        previous?.spend ?? null,
+        money(previous?.spend),
+        "total budget",
+      ),
+      change: deltaPercent(current.spend, previous?.spend),
+      accent: "var(--green)",
+      icon: Wallet,
+    },
+    {
       label: "Leads",
       value: fmt(current.leads),
-      sub: previousSub(current.leads, previous?.leads ?? null, fmt(previous?.leads), "total leads"),
+      sub: previousSub(
+        current.leads,
+        previous?.leads ?? null,
+        fmt(previous?.leads),
+        "Meta-reported leads",
+      ),
       change: deltaPercent(current.leads, previous?.leads),
       accent: "var(--purple)",
       icon: Target,
@@ -53,61 +63,34 @@ export default function Funnel({
     {
       label: "CPL",
       value: money(current.cpl),
-      sub: previousSub(current.cpl, previous?.cpl ?? null, money(previous?.cpl), "cost per lead"),
+      sub: previousSub(
+        current.cpl,
+        previous?.cpl ?? null,
+        money(previous?.cpl),
+        "cost per lead",
+      ),
       change: deltaPercent(current.cpl, previous?.cpl),
       invert: true,
       accent: "var(--yellow)",
       icon: TrendingUp,
     },
     {
-      label: "Spend",
-      value: money(current.spend),
-      sub: previousSub(current.spend, previous?.spend ?? null, money(previous?.spend), "total budget"),
-      change: deltaPercent(current.spend, previous?.spend),
-      accent: "var(--green)",
-      icon: Wallet,
-    },
-    {
       label: "CTR",
       value: percent(current.ctr),
-      sub: previousSub(current.ctr, previous?.ctr ?? null, percent(previous?.ctr), "click-through rate"),
+      sub: previousSub(
+        current.ctr,
+        previous?.ctr ?? null,
+        percent(previous?.ctr),
+        "click-through rate",
+      ),
       change: deltaPercent(current.ctr, previous?.ctr),
       accent: "var(--yellow)",
       icon: Percent,
     },
-    {
-      label: "Clicks",
-      value: fmt(current.clicks),
-      sub: previousSub(current.clicks, previous?.clicks ?? null, fmt(previous?.clicks), "link clicks"),
-      change: deltaPercent(current.clicks, previous?.clicks),
-      accent: "var(--blue)",
-      icon: MousePointerClick,
-    },
-    {
-      label: "Impressions",
-      value: fmt(current.impressions),
-      sub: previousSub(
-        current.impressions,
-        previous?.impressions ?? null,
-        fmt(previous?.impressions),
-        "total ad views",
-      ),
-      change: deltaPercent(current.impressions, previous?.impressions),
-      accent: "var(--violet)",
-      icon: Eye,
-    },
-    {
-      label: "Acc. Reach",
-      value: fmt(current.reach),
-      sub: previousSub(current.reach, previous?.reach ?? null, fmt(previous?.reach), "unique people"),
-      change: deltaPercent(current.reach, previous?.reach),
-      accent: "var(--purple)",
-      icon: Users,
-    },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 xl:grid-cols-7">
+    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (

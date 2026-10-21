@@ -1,4 +1,10 @@
 import { formatShort } from "./format";
+import {
+  averageFrequency,
+  clickThroughRate,
+  costPerLead,
+  costPerThousand,
+} from "./metrics";
 import type {
   BreakdownLevel,
   BreakdownRow,
@@ -59,10 +65,10 @@ export function aggregate(rows: DailyRow[]): Metrics {
     whatsappLeads: sum(rows, "whatsappLeads"),
     messengerLeads: sum(rows, "messengerLeads"),
     messagingConnections: sum(rows, "messagingConnections"),
-    cpl: leads > 0 ? spend / leads : null,
-    ctr: impressions > 0 ? (clicks / impressions) * 100 : null,
-    cpm: impressions > 0 ? (spend / impressions) * 1000 : null,
-    frequency: reach > 0 ? impressions / reach : null,
+    cpl: costPerLead(spend, leads),
+    ctr: clickThroughRate(clicks, impressions),
+    cpm: costPerThousand(spend, impressions),
+    frequency: averageFrequency(impressions, reach),
   };
 }
 
@@ -131,8 +137,8 @@ export function breakdown(rows: DailyRow[], level: BreakdownLevel): BreakdownRow
     .map((group) => ({
       ...group,
       spend: Math.round(group.spend * 100) / 100,
-      cpl: group.leads > 0 ? group.spend / group.leads : null,
-      ctr: group.impressions > 0 ? (group.clicks / group.impressions) * 100 : null,
+      cpl: costPerLead(group.spend, group.leads),
+      ctr: clickThroughRate(group.clicks, group.impressions),
     }))
     .sort((a, b) => b.leads - a.leads || a.spend - b.spend);
 }

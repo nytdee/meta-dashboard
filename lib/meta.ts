@@ -1,6 +1,6 @@
 import type { DailyRow } from "./types";
 
-const GRAPH_VERSION = "v19.0";
+const GRAPH_VERSION = "v24.0";
 const FIELDS = [
   "campaign_name",
   "adset_name",
@@ -93,7 +93,6 @@ export async function fetchMetaRows({
     time_increment: "1",
     level,
     time_range: JSON.stringify({ since, until }),
-    access_token: token,
     limit: "500",
   });
 
@@ -104,6 +103,7 @@ export async function fetchMetaRows({
   for (let page = 0; nextUrl && page < 50; page += 1) {
     const response = await fetch(nextUrl, {
       cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(25_000),
     });
     const payload = (await response.json()) as {

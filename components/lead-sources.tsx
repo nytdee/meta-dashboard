@@ -54,7 +54,7 @@ export default function LeadSources({ current }: { current: Metrics }) {
                   className="font-mono text-xs font-bold"
                   style={{ color: source.accent }}
                 >
-                  {share.toFixed(0)}%
+                  {share.toFixed(1)}%
                 </p>
                 <p className="text-[10px] text-muted">of tracked</p>
               </div>

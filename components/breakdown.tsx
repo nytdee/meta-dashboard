@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { breakdown, quantile } from "@/lib/aggregate";
+import { breakdown } from "@/lib/aggregate";
 import { fmt, money, percent } from "@/lib/format";
 import type { BreakdownLevel, DailyRow } from "@/lib/types";
 import { EmptyState, cn } from "./ui";
@@ -22,12 +22,6 @@ const SORTABLE: Array<{ key: SortKey; label: string }> = [
   { key: "cpl", label: "CPL" },
 ];
 
-function actionTag(leads: number, threshold: number) {
-  if (leads === 0) return { label: "Review", className: "bg-bad/10 text-bad" };
-  if (leads >= threshold) return { label: "Scale", className: "bg-good/10 text-good" };
-  return { label: "Hold", className: "bg-surface-2 text-muted" };
-}
-
 export default function Breakdown({
   campaignRows,
   adRows,
@@ -43,11 +37,6 @@ export default function Breakdown({
   const rows = useMemo(
     () => breakdown(level === "campaign" ? campaignRows : adRows, level),
     [level, campaignRows, adRows],
-  );
-
-  const scaleThreshold = useMemo(
-    () => quantile(campaignRows.map((row) => row.leads), 0.75),
-    [campaignRows],
   );
 
   const visible = useMemo(() => {
@@ -89,6 +78,55 @@ export default function Breakdown({
     setQuery("");
   }
 
+  function downloadCsv() {
+    const header =
+      level === "campaign"
+        ? ["campaign", "reach", "leads", "spend", "ctr", "cpl"]
+        : [
+            "campaign",
+            level === "adset" ? "adset" : "ad",
+            "reach",
+            "leads",
+            "spend",
+            "ctr",
+            "cpl",
+          ];
+    const lines = [
+      header.join(","),
+      ...visible.map((row) =>
+        [
+          row.campaign,
+          ...(level === "campaign"
+            ? []
+            : [level === "adset" ? row.adset : row.ad]),
+          row.reach,
+          row.leads,
+          row.spend,
+          row.ctr ?? "",
+          row.cpl ?? "",
+        ]
+          .map((value) => {
+            const text = String(value);
+            return /[",\n]/.test(text)
+              ? `"${text.replace(/"/g, '""')}"`
+              : text;
+          })
+          .join(","),
+      ),
+    ];
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `meta_${level}_export.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const nameHeader = level === "campaign" ? "Campaign" : level === "adset" ? "Ad set" : "Ad";
 
   return (
@@ -123,6 +161,15 @@ export default function Breakdown({
             />
           </div>
           <span className="text-[10px] text-muted">{visible.length} rows</span>
+          <button
+            type="button"
+            onClick={downloadCsv}
+            disabled={visible.length === 0}
+            className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-[10px] font-semibold transition hover:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Download className="h-3 w-3" />
+            Export
+          </button>
         </div>
       </div>
 
@@ -174,16 +221,10 @@ export default function Breakdown({
                     </button>
                   </th>
                 ))}
-                {level === "campaign" ? (
-                  <th className="border-b border-line px-3 py-2 text-right">
-                    <span className="label-mono">Action</span>
-                  </th>
-                ) : null}
               </tr>
             </thead>
             <tbody>
               {visible.map((row, index) => {
-                const tag = actionTag(row.leads, scaleThreshold);
                 return (
                   <tr
                     key={row.key}
@@ -222,18 +263,6 @@ export default function Breakdown({
                     <td className="tabular border-b border-line px-3 py-2 text-right font-mono text-xs">
                       {money(row.cpl)}
                     </td>
-                    {level === "campaign" ? (
-                      <td className="border-b border-line px-3 py-2 text-right">
-                        <span
-                          className={cn(
-                            "inline-block rounded px-1.5 py-0.5 font-mono text-[10px] font-bold",
-                            tag.className,
-                          )}
-                        >
-                          {tag.label}
-                        </span>
-                      </td>
-                    ) : null}
                   </tr>
                 );
               })}

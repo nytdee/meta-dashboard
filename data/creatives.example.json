@@ -1,0 +1,27 @@
+{
+  "creatives": [
+    {
+      "id": "manual_example_01",
+      "name": "Video - Doctor Intro",
+      "adNames": ["LFC Updated · Video - Doctor Intro"],
+      "format": "founder/expert video",
+      "headline": "PCOS care, personalised for you",
+      "body": "Dr Meera explains why generic PCOS advice fails, and what a hormone-led plan actually looks like.",
+      "hookText": "Struggling with PCOS and nobody listens?",
+      "hookType": "problem/pain",
+      "messagingAngles": ["problem", "trust/proof"],
+      "proofTypes": ["expert explanation"],
+      "offerType": "free consultation",
+      "ctaType": "BOOK_NOW",
+      "ctaText": "Book a free consult",
+      "visualOpening": "person speaking",
+      "language": "en",
+      "observed": [
+        { "text": "Struggling with PCOS and nobody listens?", "source": "transcript" },
+        { "text": "Book a free consult", "source": "ocr" }
+      ],
+      "mediaAvailable": false,
+      "mediaNote": "No media reference available for this creative; analysis is copy-only."
+    }
+  ]
+}

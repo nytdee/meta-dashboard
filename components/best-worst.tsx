@@ -92,13 +92,17 @@ export default function BestWorst({ adRows }: { adRows: DailyRow[] }) {
 
   return (
     <div className="space-y-3">
+      <p className="px-1 text-[10px] leading-relaxed text-muted">
+        Ranked by lead volume, not revenue or qualified leads. Low-volume ads
+        are provisional and should not be treated as proven winners.
+      </p>
       <div className="grid gap-2.5 md:grid-cols-2">
         {best ? (
           <AdCard
             row={best}
-            badge="Best performing ad"
+            badge="Most leads"
             accent="var(--green)"
-            why={`CPL ${money(best.cpl)} · CTR ${percent(best.ctr)} · ${best.leads.toLocaleString("en-US")} leads`}
+            why={`CPL ${money(best.cpl)} · CTR ${percent(best.ctr)} · ${best.leads.toLocaleString("en-US")} leads${best.leads < 5 ? " · low sample" : ""}`}
           />
         ) : (
           <EmptyState>No ads with leads in this period.</EmptyState>
@@ -106,9 +110,17 @@ export default function BestWorst({ adRows }: { adRows: DailyRow[] }) {
         {worst ? (
           <AdCard
             row={worst}
-            badge="Bleeding money"
+            badge={
+              worst.leads === 0
+                ? "Spend with no leads"
+                : "Highest spend per lead"
+            }
             accent="var(--red)"
-            why={`${money(worst.spend)} spend · ${worst.leads.toLocaleString("en-US")} leads · waste score ${(worst.spend / (worst.leads + 0.1)).toFixed(0)}`}
+            why={
+              worst.leads === 0
+                ? `${money(worst.spend)} spend · no tracked leads · check tracking and form completion before judging the creative`
+                : `${money(worst.spend)} spend · CPL ${money(worst.cpl)} · ${worst.leads.toLocaleString("en-US")} leads${worst.leads < 5 ? " · low sample" : ""}`
+            }
           />
         ) : null}
       </div>

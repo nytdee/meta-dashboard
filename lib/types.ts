@@ -3,6 +3,7 @@ export type DailyRow = {
   campaign: string;
   adset: string;
   ad: string;
+  creativeId?: string;
   impressions: number;
   reach: number;
   clicks: number;
@@ -33,11 +34,15 @@ export type DashboardData = {
     adRows: number;
     sourceFiles: number;
     source: "live" | "sample";
+    stale: boolean;
+    staleDays: number | null;
     liveMaxDate: string | null;
+    missingDates: string[];
     totals: DashboardTotals;
   };
   campaign: DailyRow[];
   ads: DailyRow[];
+  creatives: import("@/lib/creative/types").CreativeMeta[];
 };
 
 export type Metrics = {

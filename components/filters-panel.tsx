@@ -1,10 +1,9 @@
 "use client";
 
-import { CalendarRange, Database, SlidersHorizontal } from "lucide-react";
+import { CalendarRange, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import MultiSelect from "./multi-select";
 import { cn } from "./ui";
-import { formatDateTime, formatShort } from "@/lib/format";
 import type {
   CompareMode,
   PresetKey,
@@ -34,11 +33,7 @@ type FiltersPanelProps = {
   onCampaignsChange: (value: string[]) => void;
   showDiagnostics: boolean;
   onShowDiagnosticsChange: (value: boolean) => void;
-  dataDays: number;
-  sourceFiles: number;
-  source: "live" | "sample";
-  liveMaxDate: string | null;
-  generatedAt: string;
+  showDiagnosticsToggle?: boolean;
 };
 
 function Segmented<T extends string>({
@@ -114,11 +109,7 @@ export default function FiltersPanel({
   onCampaignsChange,
   showDiagnostics,
   onShowDiagnosticsChange,
-  dataDays,
-  sourceFiles,
-  source,
-  liveMaxDate,
-  generatedAt,
+  showDiagnosticsToggle = true,
 }: FiltersPanelProps) {
   return (
     <div className="panel p-4">
@@ -230,16 +221,25 @@ export default function FiltersPanel({
         />
       </div>
 
-      <div className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2">
-        <div>
-          <span className="text-xs font-medium">Diagnostics</span>
-          <p className="text-[10px] text-muted">Reach, CPM and raw export</p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={showDiagnostics}
-          onClick={() => onShowDiagnosticsChange(!showDiagnostics)}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showDiagnostics}
+        aria-controls="diagnostics"
+        onClick={() => onShowDiagnosticsChange(!showDiagnostics)}
+        className={cn(
+          "mt-5 flex w-full items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-left transition hover:border-accent/50",
+          !showDiagnosticsToggle && "hidden",
+        )}
+      >
+        <span>
+          <span className="block text-xs font-medium">Diagnostics</span>
+          <span className="block text-[10px] text-muted">
+Summed reach, CPM and raw export
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
           className={cn(
             "relative h-5 w-9 shrink-0 rounded-full border transition",
             showDiagnostics
@@ -253,33 +253,8 @@ export default function FiltersPanel({
               showDiagnostics ? "left-[18px]" : "left-0.5 bg-muted",
             )}
           />
-        </button>
-      </div>
-
-      <div className="mt-4 space-y-1 border-t border-line pt-3 text-[10px] leading-relaxed text-muted">
-        {source === "sample" ? (
-          <>
-            <p className="flex items-center gap-1.5 text-warn">
-              <Database className="h-3 w-3" />
-              Sample dataset · {dataDays} days
-            </p>
-            <p>
-              {liveMaxDate
-                ? `Live CSV ends ${formatShort(liveMaxDate)}`
-                : "No live CSV files"}
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="flex items-center gap-1.5">
-              <Database className="h-3 w-3" />
-              {dataDays} days on disk · {sourceFiles} files
-            </p>
-            <p>Data through {formatShort(maxDate)}</p>
-          </>
-        )}
-        <p>Generated {formatDateTime(generatedAt)}</p>
-      </div>
+        </span>
+      </button>
     </div>
   );
 }

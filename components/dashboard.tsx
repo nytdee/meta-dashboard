@@ -1,66 +1,47 @@
 "use client";
 
-import { CalendarDays, FlaskConical, Zap } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, Layers, Sparkles, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
 import { aggregate, dailySeries, filterRows } from "@/lib/aggregate";
-import {
-  addDays,
-  daysBetween,
-  deltaPercent,
-  endOfPreviousMonth,
-  formatDateTime,
-  formatRange,
-  formatShort,
-  startOfMonth,
-  startOfPreviousMonth,
-} from "@/lib/format";
+import { buildFindings } from "@/lib/findings";
+import { addDays, daysBetween, formatRange } from "@/lib/format";
+import type { CreativeAnalysisFile } from "@/lib/creative/types";
+import { normalizeRange, rangeForPreset } from "@/lib/range";
 import type {
   CompareMode,
   DashboardData,
   PresetKey,
   RangeMode,
 } from "@/lib/types";
-import BestWorst from "./best-worst";
-import Breakdown from "./breakdown";
-import Diagnostics from "./diagnostics";
+import DataStatus from "./data-status";
 import FiltersPanel from "./filters-panel";
 import Funnel from "./funnel";
-import Insights from "./insights";
 import LeadSources from "./lead-sources";
-import PulseTable from "./pulse-table";
+import MetricDefinitions from "./metric-definitions";
+import NeedsAttention from "./needs-attention";
 import ThemeToggle from "./theme-toggle";
-import Trends from "./trends";
-import { HealthPill, Section, cn } from "./ui";
+import TrendChart from "./trend-chart";
+import { Section, cn } from "./ui";
 
-function normalizeRange(from: string, to: string) {
-  return from <= to ? { from, to } : { from: to, to: from };
-}
+export type TopCreative = {
+  id: string;
+  name: string;
+  campaign: string;
+  leads: number;
+  spend: number;
+  cpl: number | null;
+  vsBaselineCpl: number | null;
+  verdict: string;
+};
 
-function rangeForPreset(preset: PresetKey, maxDate: string) {
-  switch (preset) {
-    case "Today":
-      return { from: maxDate, to: maxDate };
-    case "Yesterday": {
-      const day = addDays(maxDate, -1);
-      return { from: day, to: day };
-    }
-    case "Last 7 days":
-      return { from: addDays(maxDate, -6), to: maxDate };
-    case "Last 14 days":
-      return { from: addDays(maxDate, -13), to: maxDate };
-    case "Last 30 days":
-      return { from: addDays(maxDate, -29), to: maxDate };
-    case "This month":
-      return { from: startOfMonth(maxDate), to: maxDate };
-    case "Last month":
-      return {
-        from: startOfPreviousMonth(maxDate),
-        to: endOfPreviousMonth(maxDate),
-      };
-  }
-}
-
-export default function Dashboard({ data }: { data: DashboardData }) {
+export default function Dashboard({
+  data,
+  analysis = null,
+}: {
+  data: DashboardData;
+  analysis?: CreativeAnalysisFile | null;
+}) {
   const { campaign, ads, summary, generatedAt } = data;
 
   const allCampaigns = useMemo(
@@ -76,7 +57,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
   const [cmpFrom, setCmpFrom] = useState(addDays(summary.maxDate, -27));
   const [cmpTo, setCmpTo] = useState(addDays(summary.maxDate, -14));
   const [selected, setSelected] = useState<string[]>(allCampaigns);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const presetRange = rangeForPreset(preset, summary.maxDate);
@@ -123,45 +103,73 @@ export default function Dashboard({ data }: { data: DashboardData }) {
     [comparison, previousRows],
   );
   const points = useMemo(() => dailySeries(currentRows), [currentRows]);
+  const previousPoints = useMemo(
+    () => (comparison ? dailySeries(previousRows) : []),
+    [comparison, previousRows],
+  );
 
   const rangeLabel = formatRange(from, to);
   const comparisonLabel = comparison
     ? formatRange(comparison.from, comparison.to)
     : null;
 
-  const issues: string[] = [];
-  const goods: string[] = [];
-  if (previous) {
-    const cplChange = deltaPercent(current.cpl, previous.cpl);
-    if (cplChange !== null) {
-      if (cplChange > 20) {
-        issues.push(
-          `CPL up ${cplChange.toFixed(0)}% vs comparison — check creative fatigue`,
-        );
-      } else if (cplChange < -10) {
-        goods.push(
-          `CPL down ${Math.abs(cplChange).toFixed(0)}% — campaigns more efficient`,
-        );
-      }
-    }
-    const ctrChange = deltaPercent(current.ctr, previous.ctr);
-    if (ctrChange !== null && ctrChange < -20) {
-      issues.push("CTR dropped sharply — creative may be fatigued");
-    }
-  }
-  if (current.frequency !== null && current.frequency > 3.5) {
-    issues.push(
-      `Avg frequency ${current.frequency.toFixed(1)}x — saturation risk`,
-    );
-  }
+  const findings = useMemo(
+    () =>
+      buildFindings({
+        current,
+        previous,
+        rangeLabel,
+        comparisonLabel,
+      }),
+    [current, previous, rangeLabel, comparisonLabel],
+  );
 
-  const healthLevel: "good" | "warn" | "bad" =
-    issues.length >= 2 ? "bad" : issues.length > 0 ? "warn" : "good";
-  const healthMessage = issues.length
-    ? issues.join(" · ")
-    : goods.length
-      ? `${goods.join(" · ")} · All healthy`
-      : "All metrics healthy";
+  // Creative performance is computed on ad-level delivery rows and rescoped to
+  // the selected range so it never mixes periods.
+  const topCreatives = useMemo<TopCreative[]>(() => {
+    if (!analysis) return [];
+    const totals = { leads: 0, spend: 0, clicks: 0, impressions: 0 };
+    const scoped = analysis.creatives.map((item) => {
+      let leads = 0;
+      let spend = 0;
+      let clicks = 0;
+      let impressions = 0;
+      for (const point of item.daily) {
+        if (point.date < from || point.date > to) continue;
+        leads += point.leads;
+        spend += point.spend;
+        clicks += point.clicks;
+        impressions += point.impressions;
+      }
+      totals.leads += leads;
+      totals.spend += spend;
+      totals.clicks += clicks;
+      totals.impressions += impressions;
+      return { item, leads, spend, clicks, impressions };
+    });
+    const baselineCpl =
+      totals.leads > 0 ? totals.spend / totals.leads : null;
+    return scoped
+      .filter((entry) => entry.leads > 0)
+      .sort((a, b) => b.leads - a.leads)
+      .slice(0, 3)
+      .map((entry) => {
+        const cpl = entry.leads > 0 ? entry.spend / entry.leads : null;
+        return {
+          id: entry.item.creative.id,
+          name: entry.item.creative.name,
+          campaign: entry.item.performance.campaigns.join(", "),
+          leads: entry.leads,
+          spend: Math.round(entry.spend * 100) / 100,
+          cpl,
+          vsBaselineCpl:
+            cpl !== null && baselineCpl
+              ? Math.round(((cpl - baselineCpl) / baselineCpl) * 10000) / 100
+              : null,
+          verdict: entry.item.verdict,
+        };
+      });
+  }, [analysis, from, to]);
 
   const filtersProps = {
     rangeMode,
@@ -183,13 +191,9 @@ export default function Dashboard({ data }: { data: DashboardData }) {
     allCampaigns,
     campaigns: selected,
     onCampaignsChange: setSelected,
-    showDiagnostics,
-    onShowDiagnosticsChange: setShowDiagnostics,
-    dataDays: summary.days,
-    sourceFiles: summary.sourceFiles,
-    source: summary.source,
-    liveMaxDate: summary.liveMaxDate,
-    generatedAt,
+    showDiagnostics: false,
+    onShowDiagnosticsChange: () => {},
+    showDiagnosticsToggle: false,
   };
 
   return (
@@ -228,7 +232,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
                   <span className="label-mono text-fg">Meta Ads</span>
                 </div>
                 <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                  Leads Dashboard
+                  Meta Ads Intelligence
                 </h1>
                 <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                   <span className="inline-flex items-center gap-1">
@@ -243,29 +247,13 @@ export default function Dashboard({ data }: { data: DashboardData }) {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <HealthPill level={healthLevel} message={healthMessage} />
                 <ThemeToggle />
               </div>
             </header>
 
             <div className="mt-4 h-0.5 rounded bg-gradient-to-r from-accent via-good to-warn" />
 
-            {summary.source === "sample" ? (
-              <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-warn/30 bg-warn/10 p-3 text-xs text-warn">
-                <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
-                <p className="leading-relaxed">
-                  <span className="font-semibold">Sample data</span> — the live
-                  export
-                  {summary.liveMaxDate
-                    ? ` ends ${formatShort(summary.liveMaxDate)}`
-                    : " is unavailable"}
-                  . Showing {summary.days} days of generated demo data through{" "}
-                  {formatShort(summary.maxDate)}. Refresh the CSV export and run{" "}
-                  <code className="font-mono">npm run data</code> to restore live
-                  figures.
-                </p>
-              </div>
-            ) : null}
+            <DataStatus summary={summary} generatedAt={generatedAt} />
 
             {selected.length === 0 ? (
               <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-3 text-xs text-warn">
@@ -273,64 +261,123 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               </div>
             ) : null}
 
-            <Section title="Performance funnel" subtitle={rangeLabel}>
+            <Section
+              title="Primary KPIs"
+              subtitle={`${rangeLabel} · Default objective: Meta-reported leads, not qualified`}
+            >
               <Funnel current={current} previous={previous} />
+            </Section>
+
+            <Section title="Needs attention" subtitle="rule-based, evidence-linked">
+              <NeedsAttention findings={findings} />
             </Section>
 
             <Section title="Lead landing type" subtitle="exact source per lead">
               <LeadSources current={current} />
             </Section>
 
-            <Section title="Daily pulse" subtitle="latest complete windows">
-              <PulseTable
-                rows={campaign}
-                campaigns={selected}
-                maxDate={summary.maxDate}
+            <Section title="Performance trend" subtitle={rangeLabel}>
+              <TrendChart
+                current={points}
+                previous={previousPoints}
+                comparisonLabel={comparisonLabel}
               />
             </Section>
 
-            <Section title="Trends" subtitle={rangeLabel}>
-              <Trends points={points} />
+            <Section
+              title="Top performers"
+              subtitle="ad-level delivery in the selected range"
+            >
+              {topCreatives.length === 0 ? (
+                <div className="panel px-4 py-5 text-sm text-muted">
+                  No creative analysis is available yet. Run{" "}
+                  <code className="font-mono text-fg">npm run creative:analyze</code>.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <p className="px-1 text-[10px] leading-relaxed text-muted">
+                    The business objective is not configured yet, so this ranks
+                    by reported lead volume on ad-level delivery. It is not a
+                    profit ranking and not a causal claim.
+                  </p>
+                  <div className="grid gap-2.5 md:grid-cols-3">
+                    {topCreatives.map((creative) => (
+                      <div key={creative.id} className="panel p-4">
+                        <p className="truncate text-sm font-semibold">
+                          {creative.name}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted">
+                          {creative.campaign}
+                        </p>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="label-mono text-[9px]">Leads</p>
+                            <p className="tabular mt-0.5 font-mono text-xs font-bold">
+                              {creative.leads.toLocaleString("en-US")}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="label-mono text-[9px]">CPL</p>
+                            <p className="tabular mt-0.5 font-mono text-xs font-bold">
+                              ₹{Math.round(creative.cpl ?? 0).toLocaleString("en-US")}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="label-mono text-[9px]">Vs base</p>
+                            <p className="tabular mt-0.5 font-mono text-xs font-bold">
+                              {creative.vsBaselineCpl === null
+                                ? "—"
+                                : `${creative.vsBaselineCpl > 0 ? "+" : ""}${creative.vsBaselineCpl.toFixed(0)}%`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Link
+                    href="/creative"
+                    className="inline-flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/20"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Open Creative Intelligence for goal-aware rankings, tag
+                    cohorts and replicate candidates
+                  </Link>
+                </div>
+              )}
             </Section>
 
-            <Section title="Breakdown" subtitle="campaign · ad set · ad">
-              <Breakdown campaignRows={currentRows} adRows={adRows} />
-            </Section>
+            <div className="mt-8 grid gap-2.5 md:grid-cols-2">
+              <Link
+                href="/creative"
+                className="panel flex items-center gap-3 p-4 transition hover:border-accent/40"
+              >
+                <Sparkles className="h-4 w-4 text-accent" />
+                <span>
+                  <span className="block text-sm font-semibold">
+                    Creative Intelligence
+                  </span>
+                  <span className="block text-[11px] text-muted">
+                    Which ads to replicate and why, with quantitative evidence
+                  </span>
+                </span>
+              </Link>
+              <Link
+                href="/campaigns"
+                className="panel flex items-center gap-3 p-4 transition hover:border-accent/40"
+              >
+                <Layers className="h-4 w-4 text-accent" />
+                <span>
+                  <span className="block text-sm font-semibold">
+                    Campaigns &amp; Ads
+                  </span>
+                  <span className="block text-[11px] text-muted">
+                    Drill-down table, exports and collapsed diagnostics
+                  </span>
+                </span>
+              </Link>
+            </div>
 
-            <Section title="Best & worst ads" subtitle={rangeLabel}>
-              <BestWorst adRows={adRows} />
-            </Section>
-
-            <Section title="Insights">
-              <Insights current={current} previous={previous} />
-            </Section>
-
-            {showDiagnostics ? (
-              <Section title="Diagnostics" subtitle="raw metrics and export">
-                <Diagnostics
-                  current={current}
-                  rows={currentRows}
-                  from={from}
-                  to={to}
-                />
-              </Section>
-            ) : null}
-
-            <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4 text-[10px] text-muted">
-              <span>
-                {summary.source === "sample" ? "Sample data" : "Data"} through{" "}
-                {formatShort(summary.maxDate)} · generated{" "}
-                {formatDateTime(generatedAt)}
-              </span>
-              <span>
-                {summary.source === "sample"
-                  ? summary.liveMaxDate
-                    ? `Live CSV ends ${formatShort(summary.liveMaxDate)}`
-                    : "No live CSV files"
-                  : `${summary.sourceFiles} source files`}{" "}
-                · Next.js
-              </span>
-            </footer>
+            <MetricDefinitions />
           </main>
         </div>
       </div>
